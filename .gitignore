@@ -1,0 +1,10 @@
+env/
+__pycache__/
+*.pyc
+*.log
+*.csv
+checkpoints/
+data/
+*.tfrecord
+*.json
+*.vtk
