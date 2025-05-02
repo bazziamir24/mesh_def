@@ -93,10 +93,16 @@ def learner(model, params):
             decay_rate=0.1,
             staircase=True
         )
-
+        print("FLAGS.checkpoint_dir =", FLAGS.checkpoint_dir)
+        print("FLAGS.dataset_dir   =", FLAGS.dataset_dir)
+        print("CWD                 =", os.getcwd())
         print("\n=== Creating Optimizer ===")
         optimizer = tf.keras.optimizers.Adam(learning_rate=lr_schedule)
         print("Optimizer created successfully")
+
+        if not os.path.isdir(FLAGS.checkpoint_dir):
+            print(f"📁 checkpoint_dir does not exist, creating: {FLAGS.checkpoint_dir}")
+            os.makedirs(FLAGS.checkpoint_dir, exist_ok=True)
 
         # === Checkpointing ===
         ckpt = tf.train.Checkpoint(model=model, optimizer=optimizer, global_step=global_step)
@@ -183,7 +189,7 @@ def learner(model, params):
                             pass
 
                     # Save checkpoint every 200 steps
-                    if step_num % 200 == 0:
+                    if step_num % 100 == 0:
                         ckpt_path = ckpt_manager.save()
                         print(f"✅ Saved checkpoint at step {step_num}: {ckpt_path}")
                 else:
@@ -216,7 +222,7 @@ def evaluator(model, params):
 
     # Pad dataset to batch size 1
     padded_shapes = tf.nest.map_structure(lambda spec: spec.shape, ds.element_spec)
-    # BATCH(1) and SQUEEZE to remove batch dim, just like PyTorch
+    # BATCH(1) and SQUEEZE to remove batch dim
     ds = ds.batch(1)
     ds = ds.map(lambda x: tf.nest.map_structure(lambda v: tf.squeeze(v, axis=0), x))
 

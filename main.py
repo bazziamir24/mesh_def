@@ -24,7 +24,3 @@ if __name__ == "__main__":
     print(output.shape)
     print(mod)
     print(mod.variables)
-<<<<<<< HEAD
-    
-=======
->>>>>>> 4147b57b (Corrected version for rollouts)

@@ -29,42 +29,11 @@ class Normalizer(tf.Module):
             self._accumulate(data)
         return (data - self._mean()) / self._std_with_epsilon()
 
-<<<<<<< HEAD
     def _accumulate(self, data):
         batch_size = tf.cast(tf.shape(data)[0], tf.float32)
         batch_sum = tf.reduce_sum(data, axis=0)
         batch_sum_sq = tf.reduce_sum(tf.square(data), axis=0)
 
-=======
-    # def _accumulate(self, data):
-    #     batch_size = tf.cast(tf.shape(data)[0], tf.float32)
-    #     batch_sum = tf.reduce_sum(data, axis=0)
-    #     batch_sum_sq = tf.reduce_sum(tf.square(data), axis=0)
-
-    #     self._acc_sum.assign_add(batch_sum)
-    #     self._acc_sum_squared.assign_add(batch_sum_sq)
-    #     self._acc_count.assign_add(batch_size)
-    #     self._num_accumulations.assign_add(1.0)
-    def _accumulate(self, data):
-        """
-        Update running sums/variances.
-
-        Works for any input shape [..., size].  It first reshapes the tensor to
-        [num_samples, size] so the feature dimension is always last and of length
-        `self._size`, then updates the moving sums.
-        """
-        # 1 · Flatten ALL leading axes → [N, size]
-        flat = tf.reshape(data, [-1, self._size])          # rank‑2 for sure
-
-        # 2 · How many individual samples in this update?
-        batch_size = tf.cast(tf.shape(flat)[0], tf.float32)
-
-        # 3 · Sums over the batch
-        batch_sum      = tf.reduce_sum(flat, axis=0)       # [size]
-        batch_sum_sq   = tf.reduce_sum(tf.square(flat), axis=0)
-
-        # 4 · Update accumulators
->>>>>>> 4147b57b (Corrected version for rollouts)
         self._acc_sum.assign_add(batch_sum)
         self._acc_sum_squared.assign_add(batch_sum_sq)
         self._acc_count.assign_add(batch_size)

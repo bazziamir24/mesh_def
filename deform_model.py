@@ -28,7 +28,7 @@ class DeformingPlateModel(snt.Module):
 
         # === 1. Prescribed motion (only for HANDLE nodes) ===
         prescribed_motion = tf.where(
-            tf.equal(node_type, common.NodeType.HANDLE)[..., tf.newaxis],  # [B, N, 1]
+            tf.equal(node_type, common.NodeType.HANDLE)[:, tf.newaxis],  # [B, N, 1]
             target_pos - cur_pos,
             tf.zeros_like(cur_pos)
         )  # shape: [B, N, 3]

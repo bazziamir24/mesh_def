@@ -1,4 +1,3 @@
-
 import functools
 import json
 import os
@@ -103,8 +102,6 @@ def split_and_preprocess(ds, noise_field, noise_scale, noise_gamma):
     return ds.prefetch(tf.data.AUTOTUNE)
 
 
-import tensorflow as tf
-
 def batch_dataset(ds, batch_size):
     """Batches input datasets"""
     # Get shapes and types from the element spec.
@@ -136,8 +133,3 @@ def batch_dataset(ds, batch_size):
         ds = ds.window(batch_size, drop_remainder=True)
         ds = ds.map(batch_accumulate, num_parallel_calls=tf.data.AUTOTUNE)
     return ds
-
-<<<<<<< HEAD
-=======
-
->>>>>>> 4147b57b (Corrected version for rollouts)
