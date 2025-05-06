@@ -253,7 +253,8 @@ class ProcessorBlock(snt.Module):
                  name="ProcessorBlock"):
         super().__init__(name=name)
 
-        self.aggregator = aggregator  # for future use
+        # for future use
+        self.aggregator = aggregator  
         self.attention = attention 
         
         self.blocks = []

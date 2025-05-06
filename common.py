@@ -15,7 +15,6 @@ class NodeType(enum.IntEnum):
 import tensorflow as tf
 
 def tetrahedra_to_edges(cells):
-    tf.print("ENTERED tetrahedra_to_edges")
 
     v0, v1, v2, v3 = cells[:, 0], cells[:, 1], cells[:, 2], cells[:, 3]
 
@@ -33,7 +32,7 @@ def tetrahedra_to_edges(cells):
     senders_bi = tf.concat([senders, receivers], axis=0)
     receivers_bi = tf.concat([receivers, senders], axis=0)
 
-    tf.print("senders.shape =", tf.shape(senders_bi))
-    tf.print("senders sample =", senders_bi[:10])
+    # tf.print("senders.shape =", tf.shape(senders_bi))
+    # tf.print("senders sample =", senders_bi[:10])
 
     return senders_bi, receivers_bi

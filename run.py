@@ -23,7 +23,7 @@ flags.DEFINE_string('dataset_dir', None, 'Directory to load dataset from.')
 flags.DEFINE_string('rollout_path', None, 'Pickle file to save eval trajectories')
 flags.DEFINE_enum('rollout_split', 'valid', ['train', 'test', 'valid'],
                   'Dataset split to use for rollouts.')
-flags.DEFINE_integer('num_rollouts', 10, 'Number of rollout trajectories')
+flags.DEFINE_integer('num_rollouts', 1, 'Number of rollout trajectories')
 flags.DEFINE_integer('num_training_steps', int(10e6), 'Number of training steps')
 
 # Parameters for different models.
@@ -219,14 +219,14 @@ def evaluator(model, params):
     # === Load dataset ===
     ds = dataset.load_dataset(FLAGS.dataset_dir, FLAGS.rollout_split)
     ds = dataset.add_targets(ds, [params['field']], add_history=params['history'])
+    for key, value in ds.element_spec.items():
+        print(f"{key}: {value.shape}")
 
     # Pad dataset to batch size 1
     padded_shapes = tf.nest.map_structure(lambda spec: spec.shape, ds.element_spec)
     # BATCH(1) and SQUEEZE to remove batch dim
     ds = ds.batch(1)
     ds = ds.map(lambda x: tf.nest.map_structure(lambda v: tf.squeeze(v, axis=0), x))
-
-
 
     # === Restore checkpoint ===
     ckpt = tf.train.Checkpoint(model=model)

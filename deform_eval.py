@@ -1,89 +1,132 @@
 import tensorflow as tf
 import numpy as np
+import pickle
 from common import NodeType
 
-def _rollout(model, initial_state, num_steps, target_world_pos):
-    """Roll out the model forward in time from the initial graph."""
+# Rollout Simulation Function
+def _rollout(model, initial_state, num_steps, gt_world_pos):
+    """
+    Autoregressively simulates the system forward using the model.
 
-    # Create NORMAL and OBSTACLE node masks
-    node_type = initial_state['node_type'][:, 0]  # shape: [1, N]
-    normal_mask = tf.equal(node_type, NodeType.NORMAL.value)
-    normal_mask = tf.expand_dims(normal_mask, axis=-1)
-    normal_mask = tf.repeat(normal_mask, repeats=3, axis=-1)  # shape: [1, N, 3]
+    Parameters
+    ----------
+    model : callable
+        The trained model used to predict future states.
+    initial_state : dict
+        Dictionary containing simulation inputs at t=0.
+    num_steps : int
+        Number of timesteps to simulate.
+    gt_world_pos : tf.Tensor
+        Ground-truth positions with shape (T, N, 3).
 
-    cur_pos = initial_state['world_pos']  # shape: [1, N, 3]
+    Returns
+    -------
+    prediction : tf.Tensor
+        Predicted trajectory, shape (T, N, 3).
+    zeros (3x) : tf.Tensor
+        Placeholder tensors for compatibility with downstream tools.
+    """
 
-    trajectory = []
-    cur_positions = []
-    cur_velocities = []
-    stress_trajectory = []
+    # Identify which nodes can move: NORMAL or OUTFLOW
+    node_type = tf.squeeze(initial_state['node_type'], -1)  # (N,)
+    movable = tf.logical_or(
+        node_type == NodeType.NORMAL.value,
+        node_type == NodeType.OUTFLOW.value)                # (N,)
+    mask = tf.expand_dims(movable, -1)                      # (N, 1)
 
-    for step in tf.range(num_steps):
-        model_input = {
-            **initial_state,
-            'world_pos': cur_pos,
-            'target|world_pos': target_world_pos[step]
-        }
-
-        outputs = model(model_input, training=False)
-
-        pred_pos = tf.squeeze(outputs['world_pos'], axis=0)
-        cur_position = outputs.get('cur_position', pred_pos)
-        cur_velocity = outputs.get('cur_velocity', tf.zeros_like(pred_pos))
-        stress = outputs.get('stress', tf.zeros_like(pred_pos))
-
-        target_pos = target_world_pos[step]  # [N, 3]
-        next_pos = tf.where(normal_mask, pred_pos, target_pos)
-        # For OBSTACLE nodes, use the ground truth position instead of prediction
-        next_pos = tf.where(normal_mask, pred_pos, target_world_pos[:, step])
-
-        trajectory.append(next_pos)
-        cur_positions.append(cur_position)
-        cur_velocities.append(cur_velocity)
-        stress_trajectory.append(stress)
-
-        cur_pos = tf.stop_gradient(next_pos)
-
-    trajectory = tf.stack(trajectory, axis=1)          # [1, T, N, 3]
-    cur_positions = tf.stack(cur_positions, axis=1)    # [1, T, N, 3]
-    cur_velocities = tf.stack(cur_velocities, axis=1)  # [1, T, N, 3]
-    stress_trajectory = tf.stack(stress_trajectory, axis=1)  # [1, T, N, 3]
-
-    return trajectory, cur_positions, cur_velocities, stress_trajectory
-
-
-def evaluate(model, batch):
-    # Unpack full rollout (shape: [T, N, D])
-    target_world_pos = batch['target|world_pos']  # [T, N, 3]
-    num_steps = tf.shape(target_world_pos)[0]
-
-    # Only take t=0 from the full rollout to initialize the simulation
-    initial_state = {k: v[0] for k, v in batch.items()}
-
-    prediction, cur_positions, cur_velocities, stress = _rollout(
-        model, initial_state, num_steps, target_world_pos
-    )
-
-    mse = tf.reduce_mean(tf.square(prediction - target_world_pos))
-    l1 = tf.reduce_mean(tf.abs(prediction - target_world_pos))
-    scalars = {
-        'mse_world_pos': float(mse.numpy()),
-        'l1_world_pos': float(l1.numpy())
+    # Extract static (time-invariant) fields from input
+    static_inputs = {
+        k: v for k, v in initial_state.items()
+        if k not in ('world_pos', 'target|world_pos')
     }
 
-    faces = batch['cells'][0]  # remove batch dim
-    face_start = faces[:, 0:3]
-    face_end = tf.concat([faces[:, 2:], tf.expand_dims(faces[:, 0], axis=-1)], axis=-1)
-    faces_result = tf.concat([face_start, face_end], axis=0)  # [2F, 3]
+    # Initialize with t=0 positions
+    cur_pos = initial_state['world_pos']                    # (N, 3)
+    trajectory = []
+
+    for t in tf.range(num_steps):
+        # Prepare model input for current step
+        model_input = {
+            **static_inputs,
+            'world_pos': cur_pos,
+            'target|world_pos': gt_world_pos[t]  # Supervision for HANDLE nodes
+        }
+
+
+        # Model prediction
+        outputs = model(model_input, training=False)
+        pred_pos = outputs['world_pos']                     # (N, 3)
+
+        # Apply ground-truth override to non-movable nodes
+        next_pos = tf.where(mask, pred_pos, gt_world_pos[t])
+        trajectory.append(next_pos)
+
+        # Stop gradient propagation (manual unrolling)
+        cur_pos = tf.stop_gradient(next_pos)
+
+        if t % 50 == 0:       # every 50 steps
+            err = tf.reduce_mean(tf.square(pred_pos - gt_world_pos))
+            tf.print(f"[rollout] step", t, "mean|z| =", tf.reduce_mean(cur_pos[:,2]),
+                    "Δpos L2 =", err)
+
+    # Stack predictions into full trajectory
+    prediction = tf.stack(trajectory, axis=0)               # (T, N, 3)
+
+    # Return dummy tensors to match expected signature
+    zeros = tf.zeros_like(prediction)
+    return prediction, zeros, zeros, zeros
+
+
+# Single-Trajectory Evaluation
+def evaluate(model, batch):
+    """
+    Evaluates a single trajectory using MSE and L1 losses.
+
+    Parameters
+    ----------
+    model : callable
+        The trained model for inference.
+    batch : dict
+        Contains trajectory tensors (T, N, F) without batch dimension.
+
+    Returns
+    -------
+    scalars : dict
+        Dictionary containing MSE and L1 loss metrics.
+    traj_ops : dict
+        Dictionary containing mesh faces and positions for visualization.
+    """
+
+    # Ground-truth target trajectory
+    gt_world_pos = batch['target|world_pos']     # (T, N, 3)
+    num_steps = tf.shape(gt_world_pos)[0]
+
+    # Extract t=0 frame as initial state
+    initial_state = {k: v[0] for k, v in batch.items()}
+
+    # Run autoregressive rollout
+    pred_pos, _, _, _ = _rollout(model, initial_state, num_steps, gt_world_pos)
+
+    # Compute error metrics
+    mse = tf.reduce_mean(tf.square(pred_pos - gt_world_pos))
+    l1  = tf.reduce_mean(tf.abs(pred_pos - gt_world_pos))
+
+    scalars = {
+        'mse_world_pos': float(mse.numpy()),
+        'l1_world_pos':  float(l1.numpy())
+    }
+
+    # Prepare triangle mesh edges for visualization (VTK/3D viewers)
+    faces = batch['cells'][0]                             # (F, 4)
+    face_start = faces[:, 0:3]                            # First 3 vertices
+    face_end = tf.concat([faces[:, 2:], faces[:, :1]], axis=-1)
+    wire_edges = tf.concat([face_start, face_end], axis=0)  # (2F, 3)
 
     traj_ops = {
-        'faces': faces_result.numpy(),
+        'faces': wire_edges.numpy(),
         'mesh_pos': batch['mesh_pos'][0].numpy(),
         'gt_pos': batch['world_pos'][0].numpy(),
-        'pred_pos': prediction.numpy(),
-        'cur_positions': cur_positions.numpy(),
-        'cur_velocities': cur_velocities.numpy(),
-        'stress': stress.numpy()
+        'pred_pos': pred_pos.numpy()
     }
 
     return scalars, traj_ops
