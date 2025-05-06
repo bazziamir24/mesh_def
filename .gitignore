@@ -8,3 +8,4 @@ data/
 *.tfrecord
 *.json
 *.vtk
+*.pkl
