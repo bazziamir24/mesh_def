@@ -102,34 +102,3 @@ def split_and_preprocess(ds, noise_field, noise_scale, noise_gamma):
     return ds.prefetch(tf.data.AUTOTUNE)
 
 
-def batch_dataset(ds, batch_size):
-    """Batches input datasets"""
-    # Get shapes and types from the element spec.
-    shapes = {key: ds.element_spec[key].shape for key in ds.element_spec}
-    types = {key: ds.element_spec[key].dtype for key in ds.element_spec}
-
-    def renumber(buffer, frame):
-        nodes, cells = buffer
-        new_nodes, new_cells = frame
-        return nodes + new_nodes, tf.concat([cells, new_cells + nodes], axis=0)
-
-    def batch_accumulate(ds_window):
-        out = {}
-        for key, ds_val in ds_window.items():
-            # Create an initial tensor of zeros with shape (0, second_dimension)
-            initial = tf.zeros((0, shapes[key][1]), dtype=types[key])
-            if key == 'cells':
-                # For 'cells', renumber node indices using information from 'node_type'
-                num_nodes = ds_window['node_type'].map(lambda x: tf.shape(x)[0])
-                cells = tf.data.Dataset.zip((num_nodes, ds_val))
-                initial = (tf.constant(0, tf.int32), initial)
-                _, out[key] = cells.reduce(initial, renumber)
-            else:
-                merge = lambda prev, cur: tf.concat([prev, cur], axis=0)
-                out[key] = ds_val.reduce(initial, merge)
-        return out
-
-    if batch_size > 1:
-        ds = ds.window(batch_size, drop_remainder=True)
-        ds = ds.map(batch_accumulate, num_parallel_calls=tf.data.AUTOTUNE)
-    return ds

@@ -4,7 +4,7 @@ import tensorflow as tf
 import tensorflow as tf
 
 class Normalizer(tf.Module):
-    def __init__(self, size, std_epsilon=1e-8, max_accumulations=10000, name="normalizer"):
+    def __init__(self, size, std_epsilon=1e-4, max_accumulations=10000, name="normalizer"):
         super().__init__(name=name)
         self._size = size
         self._std_epsilon = std_epsilon
@@ -16,7 +16,7 @@ class Normalizer(tf.Module):
         self._acc_sum = tf.Variable(tf.zeros([size]), trainable=False, name="acc_sum")
         self._acc_sum_squared = tf.Variable(tf.zeros([size]), trainable=False, name="acc_sum_squared")
 
-    def __call__(self, data, accumulate=False):
+    def __call__(self, data, accumulate=True):
         """
         Normalize the input batch.
         Args:
