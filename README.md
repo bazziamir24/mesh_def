@@ -58,7 +58,7 @@ python -m tfrecord.tools.tfrecord2idx ${OUTPUT_DIR}/test.tfrecord ${OUTPUT_DIR}/
 
 ---
 
-## 🏃 Running the Code
+## Running the Code
 
 ### Train the model
 
@@ -111,7 +111,5 @@ If you use this work or build on it, please cite the original paper:
 
 **Amir Bazzi**  
 PhD Student working on Graph Neural Networks for PDE-based industrial simulations (CIFRE)  
-🔗 [LinkedIn](https://linkedin.com/in/amirbazzi) • 🌐 [amirbazzi.dev](https://amirbazzi.dev)
-
----
+🔗 [LinkedIn](https://linkedin.com/in/amirbazzi24) 
 
