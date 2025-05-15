@@ -118,12 +118,12 @@ def evaluate(model, batch):
 
     # Prepare triangle mesh edges for visualization (VTK/3D viewers)
     faces = batch['cells'][0]                             # (F, 4)
-    face_start = faces[:, 0:3]                            # First 3 vertices
-    face_end = tf.concat([faces[:, 2:], faces[:, :1]], axis=-1)
-    wire_edges = tf.concat([face_start, face_end], axis=0)  # (2F, 3)
+    # face_start = faces[:, 0:3]                            # First 3 vertices
+    # face_end = tf.concat([faces[:, 2:], faces[:, :1]], axis=-1)
+    # wire_edges = tf.concat([face_start, face_end], axis=0)  # (2F, 3)
 
     traj_ops = {
-        'faces': wire_edges.numpy(),
+        'faces': faces.numpy(),
         'mesh_pos': batch['mesh_pos'][0].numpy(),
         'gt_pos': batch['world_pos'][0].numpy(),
         'pred_pos': pred_pos.numpy()

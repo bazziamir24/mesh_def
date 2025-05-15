@@ -23,7 +23,7 @@ flags.DEFINE_string('dataset_dir', None, 'Directory to load dataset from.')
 flags.DEFINE_string('rollout_path', None, 'Pickle file to save eval trajectories')
 flags.DEFINE_enum('rollout_split', 'valid', ['train', 'test', 'valid'],
                   'Dataset split to use for rollouts.')
-flags.DEFINE_integer('num_rollouts', 1, 'Number of rollout trajectories')
+flags.DEFINE_integer('num_rollouts', 2, 'Number of rollout trajectories')
 flags.DEFINE_integer('num_training_steps', int(10e6), 'Number of training steps')
 
 # Parameters for different models.
